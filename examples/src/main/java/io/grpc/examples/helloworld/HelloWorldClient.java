@@ -21,14 +21,25 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.logging.*;
 
 /**
  * A simple client that requests a greeting from the {@link HelloWorldServer}.
  */
 public class HelloWorldClient {
   private static final Logger logger = Logger.getLogger(HelloWorldClient.class.getName());
+  public static void loggerHelperMMP (){
+    ConsoleHandler consoleHandler = new ConsoleHandler();
+    consoleHandler.setLevel(Level.FINE);
+    SimpleFormatter f = new SimpleFormatter();
+    consoleHandler.setFormatter(f);
+    java.util.logging.Logger.getLogger("").setLevel(Level.FINE);
+    java.util.logging.Logger.getLogger("").addHandler(consoleHandler);
+  }
+
+  public static void metricHelperMMP (){
+
+  }
 
   private final GreeterGrpc.GreeterBlockingStub blockingStub;
 
@@ -60,6 +71,7 @@ public class HelloWorldClient {
    * greeting. The second argument is the target server.
    */
   public static void main(String[] args) throws Exception {
+    loggerHelperMMP ();
     String user = "world";
     // Access a service running on the local machine on port 50051
     String target = "localhost:50051";
@@ -88,11 +100,13 @@ public class HelloWorldClient {
         .build();
     try {
       HelloWorldClient client = new HelloWorldClient(channel);
+      logger.fine("Started");
       client.greet(user);
     } finally {
       // ManagedChannels use resources like threads and TCP connections. To prevent leaking these
       // resources the channel should be shut down when it will no longer be used. If it may be used
       // again leave it running.
+      logger.fine("Ended");
       channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
     }
   }

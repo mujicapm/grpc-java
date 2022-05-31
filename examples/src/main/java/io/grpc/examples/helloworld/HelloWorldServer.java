@@ -21,13 +21,23 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
+import java.util.logging.*;
+import java.lang.Thread;
+import java.lang.Math;
 
 /**
  * Server that manages startup/shutdown of a {@code Greeter} server.
  */
 public class HelloWorldServer {
   private static final Logger logger = Logger.getLogger(HelloWorldServer.class.getName());
+  private static void loggerHelperMMP (){
+    ConsoleHandler consoleHandler = new ConsoleHandler();
+    consoleHandler.setLevel(Level.FINE);
+    SimpleFormatter f = new SimpleFormatter();
+    consoleHandler.setFormatter(f);
+    java.util.logging.Logger.getLogger("").setLevel(Level.FINE);
+    java.util.logging.Logger.getLogger("").addHandler(consoleHandler);
+  }
 
   private Server server;
 
@@ -39,6 +49,8 @@ public class HelloWorldServer {
         .build()
         .start();
     logger.info("Server started, listening on " + port);
+    logger.fine("Started1");
+    logger.log(Level.FINE, "Started2");
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
@@ -46,10 +58,12 @@ public class HelloWorldServer {
         System.err.println("*** shutting down gRPC server since JVM is shutting down");
         try {
           HelloWorldServer.this.stop();
+          logger.fine("Ended2");
         } catch (InterruptedException e) {
           e.printStackTrace(System.err);
         }
         System.err.println("*** server shut down");
+        logger.fine("Ended3");
       }
     });
   }
@@ -57,7 +71,7 @@ public class HelloWorldServer {
   private void stop() throws InterruptedException {
     if (server != null) {
       server.shutdown().awaitTermination(30, TimeUnit.SECONDS);
-    }
+    } else {logger.fine("Ended");}
   }
 
   /**
@@ -73,6 +87,7 @@ public class HelloWorldServer {
    * Main launches the server from the command line.
    */
   public static void main(String[] args) throws IOException, InterruptedException {
+    loggerHelperMMP ();
     final HelloWorldServer server = new HelloWorldServer();
     server.start();
     server.blockUntilShutdown();
@@ -82,9 +97,14 @@ public class HelloWorldServer {
 
     @Override
     public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
-      HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()).build();
-      responseObserver.onNext(reply);
-      responseObserver.onCompleted();
+      try {
+        //randomly delaying by 0-1 seconds
+        Thread.sleep((long)(Math.random() * 1000));
+        HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()).build();
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
+      } catch(InterruptedException e) { }
+
     }
   }
 }
