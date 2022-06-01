@@ -24,6 +24,24 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.*;
 import java.lang.Thread;
 import java.lang.Math;
+import io.opentelemetry.sdk.metrics.SdkMeterProvider;
+import io.opentelemetry.sdk.metrics.data.MetricData;
+import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.metrics.Meter;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.sdk.metrics.export.MetricExporter;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.api.metrics.MeterProvider;
+import io.opentelemetry.exporter.logging.LoggingMetricExporter;
+import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
+import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporterBuilder;
+import io.opentelemetry.sdk.metrics.SdkMeterProvider;
+import io.opentelemetry.sdk.metrics.export.MetricExporter;
+import static io.opentelemetry.api.common.AttributeKey.stringKey;
+
 
 /**
  * Server that manages startup/shutdown of a {@code Greeter} server.
@@ -31,13 +49,34 @@ import java.lang.Math;
 public class HelloWorldServer {
   private static final Logger logger = Logger.getLogger(HelloWorldServer.class.getName());
   private static void loggerHelperMMP (){
+    logger.setLevel(Level.FINE);
     ConsoleHandler consoleHandler = new ConsoleHandler();
     consoleHandler.setLevel(Level.FINE);
     SimpleFormatter f = new SimpleFormatter();
     consoleHandler.setFormatter(f);
-    java.util.logging.Logger.getLogger("").setLevel(Level.FINE);
-    java.util.logging.Logger.getLogger("").addHandler(consoleHandler);
+    logger.addHandler(consoleHandler);
+
   }
+
+  private static final SdkMeterProvider meterProvider = SdkMeterProvider.builder()
+          .registerMetricReader(PeriodicMetricReader.builder(LoggingMetricExporter.create()).build())
+          .build();
+
+  private static final OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
+          .setMeterProvider(meterProvider)
+          .buildAndRegisterGlobal();// obtain instance of OpenTelemetry
+
+  private static final Meter meter = openTelemetry.meterBuilder("instrumentation-library-name")
+          .setInstrumentationVersion("1.0.0")
+          .build();
+
+  private static final LongCounter counter = meter
+          .counterBuilder("processed_jobs")
+          .setDescription("Processed HelloWorld Server jobs")
+          .setUnit("1")
+          .build();
+
+  private static final Attributes attributes = Attributes.of(stringKey("Key"), "HelloWorld_Server_Call");
 
   private Server server;
 
@@ -99,6 +138,7 @@ public class HelloWorldServer {
     public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
       try {
         //randomly delaying by 0-1 seconds
+        counter.add(1, attributes);
         Thread.sleep((long)(Math.random() * 1000));
         HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()).build();
         responseObserver.onNext(reply);
