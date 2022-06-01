@@ -22,13 +22,15 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.*;
+import java.util.Collections;
 
 /**
  * A simple client that requests a greeting from the {@link HelloWorldServer}.
  */
 public class HelloWorldClient {
   private static final Logger logger = Logger.getLogger(HelloWorldClient.class.getName());
-  public static void loggerHelperMMP (){
+
+  public static void loggerHelperMMP() {
     ConsoleHandler consoleHandler = new ConsoleHandler();
     consoleHandler.setLevel(Level.FINE);
     SimpleFormatter f = new SimpleFormatter();
@@ -37,9 +39,52 @@ public class HelloWorldClient {
     java.util.logging.Logger.getLogger("").addHandler(consoleHandler);
   }
 
-  public static void metricHelperMMP (){
+  private static final SdkMeterProvider meterProvider = SdkMeterProvider.builder()
+          .registerMetricReader(PeriodicMetricReader.builder(LoggingMetricExporter.create()).build())
+          .build();
 
-  }
+  private static final OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
+          .setMeterProvider(sdkMeterProvider)
+          .buildAndRegisterGlobal();// obtain instance of OpenTelemetry
+
+  private static final Meter meter = openTelemetry.meterBuilder("instrumentation-library-name")
+          .setInstrumentationVersion("1.0.0")
+          .build();
+
+  private static final LongCounter counter = meter
+          .counterBuilder("processed_jobs")
+          .setDescription("Processed HelloWorld Client jobs")
+          .setUnit("1")
+          .build();
+
+  private static final BoundLongCounter hwClientBound =
+          counter.getBound(Collections.singletonList("HelloWorldClient"));
+
+//  public static void metricHelperMMP (){
+//    SdkMeterProvider meterProvider = SdkMeterProvider.builder()
+//            .registerMetricReader(PeriodicMetricReader.builder(LoggingMetricExporter.create()).build())
+//            .build();
+//
+//    OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
+//            .setMeterProvider(sdkMeterProvider)
+//            .buildAndRegisterGlobal();// obtain instance of OpenTelemetry
+
+  // Gets or creates a named meter instance
+//    Meter meter = openTelemetry.meterBuilder("instrumentation-library-name")
+//            .setInstrumentationVersion("1.0.0")
+//            .build();
+
+
+  // Build counter e.g. LongCounter
+//    LongCounter counter = meter
+//            .counterBuilder("processed_jobs")
+//            .setDescription("Processed HelloWorld Client jobs")
+//            .setUnit("1")
+//            .build();
+
+  // It is recommended that the API user keep a reference to Attributes they will record against
+//    Attributes attributes = Attributes.of(stringKey("Key"), "SomeWork");
+//}
 
   private final GreeterGrpc.GreeterBlockingStub blockingStub;
 
@@ -102,6 +147,7 @@ public class HelloWorldClient {
       HelloWorldClient client = new HelloWorldClient(channel);
       logger.fine("Started");
       client.greet(user);
+      hwClientBound.add(1);
     } finally {
       // ManagedChannels use resources like threads and TCP connections. To prevent leaking these
       // resources the channel should be shut down when it will no longer be used. If it may be used
